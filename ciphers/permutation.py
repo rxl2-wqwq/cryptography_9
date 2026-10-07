@@ -1,4 +1,4 @@
-from .utils import clean_alpha
+from .utils import clean_alnum
 
 
 def _validate_key(key):
@@ -10,7 +10,7 @@ def _validate_key(key):
 
 def permutation_encrypt(text, key):
     key = _validate_key(key)
-    text = clean_alpha(text)
+    text = clean_alnum(text)
     width = len(key)
 
     # Tiap irisan adalah satu kolom pada susunan baris-per-baris.
@@ -19,7 +19,7 @@ def permutation_encrypt(text, key):
 
 def permutation_decrypt(ciphertext, key):
     key = _validate_key(key)
-    ciphertext = clean_alpha(ciphertext)
+    ciphertext = clean_alnum(ciphertext)
     width = len(key)
 
     # Kolom awal bisa satu huruf lebih panjang jika baris terakhir tidak penuh.

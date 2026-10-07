@@ -67,7 +67,7 @@
         <div class="field" id="text-field">
           <label for="text">Teks</label>
           <textarea id="text" name="text" rows="9" placeholder="Tulis atau tempel teks di sini">{{ request.form.get('text', '') }}</textarea>
-          <p class="field-help">Vigenère, Hill, dan OTP hanya memproses huruf A–Z; karakter lain dibuang.</p>
+          <p class="field-help">Huruf A–Z dan angka 0–9 diproses. Spasi serta tanda baca dibuang.</p>
         </div>
 
         <div class="field" id="file-field" hidden>

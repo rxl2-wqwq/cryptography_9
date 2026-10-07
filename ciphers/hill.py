@@ -1,7 +1,7 @@
 from math import gcd
 from sympy import Matrix
 from collections.abc import Sequence
-from .utils import _to_num, _to_chr, clean_alpha
+from .utils import _to_num, _to_chr, clean_alpha, clean_alnum, shift_digit
 
 
 def _inverse_key(key):
@@ -16,8 +16,7 @@ def _inverse_key(key):
     return matrix.inv_mod(26)
 
 
-def hill_encrypt(text, key):
-    text = clean_alpha(text)
+def _encrypt_letters(text, key):
     size = len(key)
 
     if not size:
@@ -34,8 +33,7 @@ def hill_encrypt(text, key):
     return "".join(result)
 
 
-def hill_decrypt(text, key):
-    text = clean_alpha(text)
+def _decrypt_letters(text, key):
     size = len(key)
 
     if not size or len(text) % size:
@@ -50,3 +48,38 @@ def hill_decrypt(text, key):
         result.extend(_to_chr(int(value) % 26) for value in decrypted)
 
     return "".join(result).rstrip("X")
+
+
+def _digit_shift(key):
+    return sum(sum(int(value) for value in row) for row in key) % 10
+
+
+def hill_encrypt(text, key):
+    cleaned = clean_alnum(text)
+    encrypted_letters = _encrypt_letters(clean_alpha(cleaned), key)
+    digit_shift_amount = _digit_shift(key)
+    letter_index = 0
+    result = []
+    for char in cleaned:
+        if char.isalpha():
+            result.append(encrypted_letters[letter_index])
+            letter_index += 1
+        else:
+            result.append(shift_digit(char, digit_shift_amount))
+    return "".join(result) + encrypted_letters[letter_index:]
+
+
+def hill_decrypt(text, key):
+    cleaned = clean_alnum(text)
+    decrypted_letters = _decrypt_letters(clean_alpha(cleaned), key)
+    digit_shift_amount = _digit_shift(key)
+    letter_index = 0
+    result = []
+    for char in cleaned:
+        if char.isalpha():
+            if letter_index < len(decrypted_letters):
+                result.append(decrypted_letters[letter_index])
+                letter_index += 1
+        else:
+            result.append(shift_digit(char, -digit_shift_amount))
+    return "".join(result)
