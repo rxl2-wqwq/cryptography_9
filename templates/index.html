@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Cryptography 9 – Enkripsi & Dekripsi</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600;9..144,700&family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+  <!-- Pindahkan style.css ke folder static/ agar bisa dibaca Flask -->
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head> 
+<body>
+
+  <header class="site-header">
+    <h1>Cryptography 9</h1>
+    <p>Ubah teks atau file menjadi kode rahasia, lalu kembalikan lagi.</p>
+  </header>
+
+  <main class="workspace">
+
+    <!-- ========== FORM ========== -->
+    <section class="panel panel-input" aria-labelledby="judul-input">
+      <h2 id="judul-input">Input</h2>
+
+      <form method="POST" action="/" enctype="multipart/form-data" id="cipher-form">
+
+        <fieldset class="mode-switch">
+          <legend>Mode</legend>
+          <label>
+            <input type="radio" name="mode" value="encrypt"
+                   {% if request.form.get('mode', 'encrypt') == 'encrypt' %}checked{% endif %}>
+            <span>Enkripsi</span>
+          </label>
+          <label>
+            <input type="radio" name="mode" value="decrypt"
+                   {% if request.form.get('mode') == 'decrypt' %}checked{% endif %}>
+            <span>Dekripsi</span>
+          </label>
+        </fieldset>
+
+        <div class="field">
+          <label for="cipher">Algoritma</label>
+          <select id="cipher" name="cipher">
+            {% set pilihan = request.form.get('cipher', 'caesar') %}
+            <option value="caesar"    {% if pilihan == 'caesar' %}selected{% endif %}>Caesar</option>
+            <option value="vigenere"  {% if pilihan == 'vigenere' %}selected{% endif %}>Vigenère</option>
+            <option value="atbash"    {% if pilihan == 'atbash' %}selected{% endif %}>Atbash</option>
+            <option value="railfence" {% if pilihan == 'railfence' %}selected{% endif %}>Rail Fence</option>
+          </select>
+        </div>
+
+        <div class="field">
+          <label for="key">Kunci</label>
+          <input type="text" id="key" name="key"
+                 value="{{ request.form.get('key', '') }}"
+                 placeholder="Contoh: 3 (Caesar) atau LEMON (Vigenère)"
+                 autocomplete="off">
+          <small>Atbash tidak memakai kunci.</small>
+        </div>
+
+        <div class="field">
+          <label for="text">Teks</label>
+          <textarea id="text" name="text" rows="7"
+                    placeholder="Tulis atau tempel teks di sini">{{ request.form.get('text', '') }}</textarea>
+        </div>
+
+        <div class="field">
+          <label for="file">Atau pilih file</label>
+          <input type="file" id="file" name="file" accept=".txt">
+        </div>
+
+        <button type="submit" class="btn-primary">Proses</button>
+      </form>
+    </section>
+
+    <!-- ========== HASIL ========== -->
+    <section class="panel panel-output" aria-labelledby="judul-hasil" aria-live="polite">
+      <h2 id="judul-hasil">Hasil</h2>
+
+      {% if error %}
+        <div class="notice notice-error" role="alert">
+          <strong>Tidak bisa diproses.</strong> {{ error }}
+        </div>
+
+      {% elif result %}
+        <div class="result-meta">
+          <span>{{ cipher_name or 'Cipher' }}</span>
+          <span>{{ 'Dekripsi' if request.form.get('mode') == 'decrypt' else 'Enkripsi' }}</span>
+        </div>
+
+        <pre class="result-text" id="result-text">{{ result }}</pre>
+
+        <div class="result-actions">
+          <button type="button" class="btn-secondary" id="copy-btn">Salin hasil</button>
+          {% if download_url %}
+            <a class="btn-secondary" href="{{ download_url }}" download>Unduh file</a>
+          {% endif %}
+        </div>
+
+      {% else %}
+        <div class="empty">
+          <p>Hasil akan muncul di sini.</p>
+          <p>Isi teks, pilih algoritma, lalu tekan <strong>Proses</strong>.</p>
+        </div>
+      {% endif %}
+    </section>
+
+  </main>
+
+  <footer class="site-footer">
+    <p>Proyek Kriptografi · Flask</p>
+  </footer>
+
+  <script>
+    // Tombol salin hasil
+    const copyBtn = document.getElementById('copy-btn');
+    if (copyBtn) {
+      copyBtn.addEventListener('click', async () => {
+        const text = document.getElementById('result-text').innerText;
+        try {
+          await navigator.clipboard.writeText(text);
+          copyBtn.textContent = 'Tersalin';
+          setTimeout(() => (copyBtn.textContent = 'Salin hasil'), 1600);
+        } catch {
+          copyBtn.textContent = 'Gagal menyalin';
+        }
+      });
+    }
+
+    // Nonaktifkan kolom kunci untuk Atbash
+    const cipher = document.getElementById('cipher');
+    const key = document.getElementById('key');
+    function toggleKey() {
+      key.disabled = cipher.value === 'atbash';
+    }
+    cipher.addEventListener('change', toggleKey);
+    toggleKey();
+  </script>
+</body>
+</html>
