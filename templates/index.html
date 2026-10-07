@@ -1,141 +1,151 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="id">
 <head>
-  <meta charset="UTF-8">
+  <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Cryptography 9 – Enkripsi & Dekripsi</title>
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600;9..144,700&family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
-  <!-- Pindahkan style.css ke folder static/ agar bisa dibaca Flask -->
+  <meta name="description" content="Aplikasi lokal untuk enkripsi dan dekripsi tujuh cipher klasik.">
+  <title>CipherForge</title>
   <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
-</head> 
+</head>
 <body>
-
   <header class="site-header">
-    <h1>Cryptography 9</h1>
-    <p>Ubah teks atau file menjadi kode rahasia, lalu kembalikan lagi.</p>
+    <div class="container header-content">
+      <h1>CipherForge</h1>
+      <p class="lede">Encrypt and decrypt text or files locally with seven timeless classical ciphers.</p>
+    </div>
   </header>
 
-  <main class="workspace">
+  <main class="container workspace">
+    <section class="panel panel-input" aria-labelledby="input-title">
+      <div class="panel-heading"><p class="step">01</p><h2 id="input-title">Masukkan data</h2></div>
+      <form method="post" action="{{ url_for('index') }}" enctype="multipart/form-data" id="cipher-form">
+        <fieldset class="choice-group">
+          <legend>Operasi</legend>
+          <div class="segmented-control">
+            <label><input type="radio" name="mode" value="encrypt" {% if request.form.get('mode', 'encrypt') == 'encrypt' %}checked{% endif %}><span>Enkripsi</span></label>
+            <label><input type="radio" name="mode" value="decrypt" {% if request.form.get('mode') == 'decrypt' %}checked{% endif %}><span>Dekripsi</span></label>
+          </div>
+        </fieldset>
 
-    <!-- ========== FORM ========== -->
-    <section class="panel panel-input" aria-labelledby="judul-input">
-      <h2 id="judul-input">Input</h2>
-
-      <form method="POST" action="/" enctype="multipart/form-data" id="cipher-form">
-
-        <fieldset class="mode-switch">
-          <legend>Mode</legend>
-          <label>
-            <input type="radio" name="mode" value="encrypt"
-                   {% if request.form.get('mode', 'encrypt') == 'encrypt' %}checked{% endif %}>
-            <span>Enkripsi</span>
-          </label>
-          <label>
-            <input type="radio" name="mode" value="decrypt"
-                   {% if request.form.get('mode') == 'decrypt' %}checked{% endif %}>
-            <span>Dekripsi</span>
-          </label>
+        <fieldset class="choice-group">
+          <legend>Jenis input</legend>
+          <div class="segmented-control">
+            <label><input type="radio" name="input_mode" value="text" {% if request.form.get('input_mode', 'text') == 'text' %}checked{% endif %}><span>Teks</span></label>
+            <label><input type="radio" name="input_mode" value="file" {% if request.form.get('input_mode') == 'file' %}checked{% endif %}><span>File</span></label>
+          </div>
+          <p class="field-help">Mode file menerima file apa pun, termasuk file biner.</p>
         </fieldset>
 
         <div class="field">
-          <label for="cipher">Algoritma</label>
-          <select id="cipher" name="cipher">
-            {% set pilihan = request.form.get('cipher', 'caesar') %}
-            <option value="caesar"    {% if pilihan == 'caesar' %}selected{% endif %}>Caesar</option>
-            <option value="vigenere"  {% if pilihan == 'vigenere' %}selected{% endif %}>Vigenère</option>
-            <option value="atbash"    {% if pilihan == 'atbash' %}selected{% endif %}>Atbash</option>
-            <option value="railfence" {% if pilihan == 'railfence' %}selected{% endif %}>Rail Fence</option>
+          <label for="cipher">Cipher</label>
+          {% set selected_cipher = request.form.get('cipher', 'shift') %}
+          <select id="cipher" name="cipher" required>
+            <option value="shift" {% if selected_cipher == 'shift' %}selected{% endif %}>Shift Cipher (Caesar)</option>
+            <option value="substitution" {% if selected_cipher == 'substitution' %}selected{% endif %}>Substitution Cipher</option>
+            <option value="affine" {% if selected_cipher == 'affine' %}selected{% endif %}>Affine Cipher</option>
+            <option value="vigenere" {% if selected_cipher == 'vigenere' %}selected{% endif %}>Vigenère Cipher</option>
+            <option value="hill" {% if selected_cipher == 'hill' %}selected{% endif %}>Hill Cipher</option>
+            <option value="permutation" {% if selected_cipher == 'permutation' %}selected{% endif %}>Permutation Cipher</option>
+            <option value="otp" {% if selected_cipher == 'otp' %}selected{% endif %}>One-Time Pad (OTP)</option>
           </select>
+          <p class="field-help">Pilih salah satu dari tujuh cipher wajib.</p>
         </div>
 
         <div class="field">
           <label for="key">Kunci</label>
-          <input type="text" id="key" name="key"
-                 value="{{ request.form.get('key', '') }}"
-                 placeholder="Contoh: 3 (Caesar) atau LEMON (Vigenère)"
-                 autocomplete="off">
-          <small>Atbash tidak memakai kunci.</small>
+          <input id="key" name="key" type="text" value="{{ request.form.get('key', '') }}" autocomplete="off" required>
+          <p class="field-help" id="key-help">Shift: angka pergeseran, contoh <code>3</code>.</p>
         </div>
 
-        <div class="field">
+        <div class="field otp-key-field" id="otp-key-field" hidden>
+          <label for="otp-key-file">File kunci OTP</label>
+          <input id="otp-key-file" name="otp_key_file" type="file" accept=".txt,text/plain">
+          <p class="field-help">Gunakan file teks berisi huruf acak. Jangan pernah memakai ulang kunci OTP.</p>
+          <button class="text-button" type="button" id="generate-otp-key">Generate key OTP</button>
+        </div>
+
+        <div class="field" id="text-field">
           <label for="text">Teks</label>
-          <textarea id="text" name="text" rows="7"
-                    placeholder="Tulis atau tempel teks di sini">{{ request.form.get('text', '') }}</textarea>
+          <textarea id="text" name="text" rows="9" placeholder="Tulis atau tempel teks di sini">{{ request.form.get('text', '') }}</textarea>
+          <p class="field-help">Vigenère, Hill, dan OTP hanya memproses huruf A–Z; karakter lain dibuang.</p>
         </div>
 
-        <div class="field">
-          <label for="file">Atau pilih file</label>
-          <input type="file" id="file" name="file" accept=".txt">
+        <div class="field" id="file-field" hidden>
+          <label for="file">File</label>
+          <input id="file" name="file" type="file">
+          <p class="field-help">File terenkripsi diunduh sebagai <code>.dat</code>; ekstensi aslinya dipulihkan saat dekripsi.</p>
         </div>
 
-        <button type="submit" class="btn-primary">Proses</button>
+        <fieldset class="choice-group output-format" id="output-format">
+          <legend>Format cipherteks</legend>
+          <div class="inline-options">
+            <label><input type="radio" name="output_format" value="plain" checked> Tanpa spasi</label>
+            <label><input type="radio" name="output_format" value="group5"> Kelompok 5 huruf</label>
+          </div>
+        </fieldset>
+
+        <button class="btn btn-primary" type="submit">Proses cipher</button>
       </form>
     </section>
 
-    <!-- ========== HASIL ========== -->
-    <section class="panel panel-output" aria-labelledby="judul-hasil" aria-live="polite">
-      <h2 id="judul-hasil">Hasil</h2>
-
+    <section class="panel panel-output" aria-labelledby="output-title" aria-live="polite">
+      <div class="panel-heading"><p class="step">02</p><h2 id="output-title">Hasil</h2></div>
       {% if error %}
-        <div class="notice notice-error" role="alert">
-          <strong>Tidak bisa diproses.</strong> {{ error }}
-        </div>
-
-      {% elif result %}
-        <div class="result-meta">
-          <span>{{ cipher_name or 'Cipher' }}</span>
-          <span>{{ 'Dekripsi' if request.form.get('mode') == 'decrypt' else 'Enkripsi' }}</span>
-        </div>
-
+        <div class="notice notice-error" role="alert"><strong>Data tidak dapat diproses.</strong><span>{{ error }}</span></div>
+      {% elif result is not none %}
+        <div class="result-meta"><span>{{ cipher_name or 'Cipher' }}</span><span>{{ 'Dekripsi' if request.form.get('mode') == 'decrypt' else 'Enkripsi' }}</span></div>
         <pre class="result-text" id="result-text">{{ result }}</pre>
-
         <div class="result-actions">
-          <button type="button" class="btn-secondary" id="copy-btn">Salin hasil</button>
-          {% if download_url %}
-            <a class="btn-secondary" href="{{ download_url }}" download>Unduh file</a>
-          {% endif %}
+          <button class="btn btn-secondary" type="button" id="copy-btn">Salin hasil</button>
+          {% if download_url %}<a class="btn btn-secondary" href="{{ download_url }}" download>Unduh hasil</a>{% endif %}
         </div>
-
       {% else %}
-        <div class="empty">
-          <p>Hasil akan muncul di sini.</p>
-          <p>Isi teks, pilih algoritma, lalu tekan <strong>Proses</strong>.</p>
-        </div>
+        <div class="empty-state"><p class="empty-icon" aria-hidden="true">⌘</p><p>Hasil enkripsi atau dekripsi akan muncul di sini.</p><p class="field-help">Data diproses lokal; tidak ada layanan pihak ketiga yang digunakan.</p></div>
       {% endif %}
+      <aside class="security-note" aria-label="Catatan keamanan"><h3>Catatan</h3><p>Cipher klasik dipakai untuk pembelajaran, bukan untuk melindungi data sensitif.</p></aside>
     </section>
-
   </main>
 
-  <footer class="site-footer">
-    <p>Proyek Kriptografi · Flask</p>
-  </footer>
+  <footer class="site-footer"><div class="container">Aplikasi lokal Flask · Tujuh cipher klasik</div></footer>
 
   <script>
-    // Tombol salin hasil
-    const copyBtn = document.getElementById('copy-btn');
-    if (copyBtn) {
-      copyBtn.addEventListener('click', async () => {
-        const text = document.getElementById('result-text').innerText;
-        try {
-          await navigator.clipboard.writeText(text);
-          copyBtn.textContent = 'Tersalin';
-          setTimeout(() => (copyBtn.textContent = 'Salin hasil'), 1600);
-        } catch {
-          copyBtn.textContent = 'Gagal menyalin';
-        }
-      });
-    }
-
-    // Nonaktifkan kolom kunci untuk Atbash
     const cipher = document.getElementById('cipher');
     const key = document.getElementById('key');
-    function toggleKey() {
-      key.disabled = cipher.value === 'atbash';
+    const keyHelp = document.getElementById('key-help');
+    const otpKeyField = document.getElementById('otp-key-field');
+    const textField = document.getElementById('text-field');
+    const fileField = document.getElementById('file-field');
+    const outputFormat = document.getElementById('output-format');
+    const cipherNotes = {
+      shift: 'Shift: angka pergeseran, contoh 3.',
+      substitution: 'Substitution: 26 huruf unik sebagai permutasi alfabet.',
+      affine: 'Affine: masukkan m,b; m harus relatif prima dengan 26. Contoh: 7,10.',
+      vigenere: 'Vigenère: kata atau frasa huruf, contoh CIPHER.',
+      hill: 'Hill: matriks persegi invertibel modulo 26.',
+      permutation: 'Permutation: urutan angka tanpa duplikat, contoh 3,1,2.',
+      otp: 'OTP memakai file kunci berisi huruf acak dengan panjang minimal pesan.'
+    };
+    function updateCipherFields() {
+      const isOtp = cipher.value === 'otp';
+      keyHelp.textContent = cipherNotes[cipher.value];
+      key.required = !isOtp;
+      key.disabled = isOtp;
+      otpKeyField.hidden = !isOtp;
     }
-    cipher.addEventListener('change', toggleKey);
-    toggleKey();
+    function updateInputMode() {
+      const isFile = document.querySelector('input[name="input_mode"]:checked').value === 'file';
+      textField.hidden = isFile;
+      fileField.hidden = !isFile;
+      outputFormat.hidden = isFile;
+    }
+    cipher.addEventListener('change', updateCipherFields);
+    document.querySelectorAll('input[name="input_mode"]').forEach((input) => input.addEventListener('change', updateInputMode));
+    updateCipherFields(); updateInputMode();
+    const copyButton = document.getElementById('copy-btn');
+    if (copyButton) copyButton.addEventListener('click', async () => {
+      try { await navigator.clipboard.writeText(document.getElementById('result-text').innerText); copyButton.textContent = 'Tersalin'; }
+      catch { copyButton.textContent = 'Gagal menyalin'; }
+    });
   </script>
 </body>
 </html>
