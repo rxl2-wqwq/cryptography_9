@@ -1,6 +1,8 @@
 from ast import literal_eval
 
-from flask import Flask, render_template, request
+from io import BytesIO
+
+from flask import Flask, render_template, request, send_file
 
 from ciphers import (
     affine_decrypt,
@@ -19,6 +21,7 @@ from ciphers import (
     vigenere_encrypt,
 )
 from ciphers.utils import group5
+from filemode import FileModeError, decrypt_file, encrypt_file
 
 app = Flask(__name__)
 
@@ -100,6 +103,37 @@ def process_text(cipher, mode, text, key):
     return (encrypt if mode == "encrypt" else decrypt)(), name
 
 
+def process_uploaded_file(cipher, mode):
+    """Return a download response for an encrypted or decrypted uploaded file."""
+    uploaded = request.files.get("file")
+    if not uploaded or not uploaded.filename:
+        raise FileModeError("Pilih file yang akan diproses")
+
+    key = request.form.get("key", "")
+    if cipher == "otp":
+        otp_key = request.files.get("otp_key_file")
+        if not otp_key or not otp_key.filename:
+            raise FileModeError("Pilih file kunci OTP")
+        key = otp_key.read()
+
+    if mode == "encrypt":
+        encrypted = encrypt_file(uploaded.read(), cipher, key, uploaded.filename)
+        return send_file(
+            BytesIO(encrypted),
+            as_attachment=True,
+            download_name="ciphertext.dat",
+            mimetype="application/octet-stream",
+        )
+
+    decrypted, original_filename = decrypt_file(uploaded.read(), cipher, key)
+    return send_file(
+        BytesIO(decrypted),
+        as_attachment=True,
+        download_name=original_filename,
+        mimetype="application/octet-stream",
+    )
+
+
 @app.route("/", methods=["GET", "POST"])
 def index():
     result = None
@@ -108,12 +142,14 @@ def index():
 
     if request.method == "POST":
         try:
+            cipher = request.form.get("cipher", "shift")
+            mode = request.form.get("mode", "encrypt")
             if request.form.get("input_mode", "text") == "file":
-                raise ValueError("Mode file belum tersedia")
+                return process_uploaded_file(cipher, mode)
 
             result, cipher_name = process_text(
-                request.form.get("cipher", "shift"),
-                request.form.get("mode", "encrypt"),
+                cipher,
+                mode,
                 request.form.get("text", ""),
                 request.form.get("key", ""),
             )
