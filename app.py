@@ -1,106 +1,103 @@
-"""Web interface for the Cryptography 9 cipher exercises."""
-
-from __future__ import annotations
+from ast import literal_eval
 
 from flask import Flask, render_template, request
 
-from ciphers import shift_decrypt, shift_encrypt, vigenere_decrypt, vigenere_encrypt
-from ciphers.utils import ALPHABET, clean_alpha
-
+from ciphers import (
+    affine_decrypt,
+    affine_encrypt,
+    hill_decrypt,
+    hill_encrypt,
+    otp_decrypt,
+    otp_encrypt,
+    permutation_decrypt,
+    permutation_encrypt,
+    shift_decrypt,
+    shift_encrypt,
+    substitution_decrypt,
+    substitution_encrypt,
+    vigenere_decrypt,
+    vigenere_encrypt,
+)
+from ciphers.utils import group5
 
 app = Flask(__name__)
 
 
-def atbash(text: str) -> str:
-    """Encrypt or decrypt text with Atbash (both operations are identical)."""
-    return clean_alpha(text).translate(str.maketrans(ALPHABET, ALPHABET[::-1]))
+def parse_affine_key(key):
+    try:
+        return tuple(map(int, key.split(",")))
+    except ValueError as exc:
+        raise ValueError("Kunci Affine harus seperti: 7,10") from exc
 
 
-def rail_fence_encrypt(text: str, rails: int) -> str:
-    text = clean_alpha(text)
-    rows = ["" for _ in range(rails)]
-    row, direction = 0, 1
-
-    for char in text:
-        rows[row] += char
-        if row == 0:
-            direction = 1
-        elif row == rails - 1:
-            direction = -1
-        row += direction
-
-    return "".join(rows)
+def parse_permutation_key(key):
+    try:
+        return [int(value.strip()) for value in key.split(",")]
+    except ValueError as exc:
+        raise ValueError("Kunci Permutation harus seperti: 3,1,2") from exc
 
 
-def rail_fence_decrypt(ciphertext: str, rails: int) -> str:
-    ciphertext = clean_alpha(ciphertext)
-    if not ciphertext:
-        return ""
+def parse_hill_key(key):
+    try:
+        matrix = literal_eval(key)
+    except (SyntaxError, ValueError) as exc:
+        raise ValueError(
+            "Kunci Hill harus seperti: [[17,17,5],[21,18,21],[2,2,19]]"
+        ) from exc
 
-    pattern: list[int] = []
-    row, direction = 0, 1
-    for _ in ciphertext:
-        pattern.append(row)
-        if row == 0:
-            direction = 1
-        elif row == rails - 1:
-            direction = -1
-        row += direction
-
-    counts = [pattern.count(rail) for rail in range(rails)]
-    rows: list[list[str]] = []
-    cursor = 0
-    for count in counts:
-        rows.append(list(ciphertext[cursor : cursor + count]))
-        cursor += count
-
-    return "".join(rows[rail].pop(0) for rail in pattern)
+    if not isinstance(matrix, list):
+        raise ValueError("Kunci Hill harus berupa matriks")
+    return matrix
 
 
-def get_input_text() -> str:
-    """Return the submitted text, preferring an uploaded UTF-8 text file."""
-    uploaded = request.files.get("file")
-    if uploaded and uploaded.filename:
-        try:
-            return uploaded.read().decode("utf-8")
-        except UnicodeDecodeError as exc:
-            raise ValueError("file harus berupa teks UTF-8") from exc
-    return request.form.get("text", "")
+def process_text(cipher, mode, text, key):
+    if not text:
+        raise ValueError("Masukkan teks")
 
+    operations = {
+        "shift": (
+            lambda: shift_encrypt(text, int(key)),
+            lambda: shift_decrypt(text, int(key)),
+            "Shift Cipher",
+        ),
+        "substitution": (
+            lambda: substitution_encrypt(text, key),
+            lambda: substitution_decrypt(text, key),
+            "Substitution Cipher",
+        ),
+        "affine": (
+            lambda: affine_encrypt(text, *parse_affine_key(key)),
+            lambda: affine_decrypt(text, *parse_affine_key(key)),
+            "Affine Cipher",
+        ),
+        "vigenere": (
+            lambda: vigenere_encrypt(text, key),
+            lambda: vigenere_decrypt(text, key),
+            "Vigenère Cipher",
+        ),
+        "hill": (
+            lambda: hill_encrypt(text, parse_hill_key(key)),
+            lambda: hill_decrypt(text, parse_hill_key(key)),
+            "Hill Cipher",
+        ),
+        "permutation": (
+            lambda: permutation_encrypt(text, parse_permutation_key(key)),
+            lambda: permutation_decrypt(text, parse_permutation_key(key)),
+            "Permutation Cipher",
+        ),
+        "otp": (
+            lambda: otp_encrypt(text, key),
+            lambda: otp_decrypt(text, key),
+            "One-Time Pad",
+        ),
+    }
 
-def process_cipher(cipher: str, mode: str, text: str, key: str) -> tuple[str, str]:
-    """Run the cipher selected by the form and return result plus display name."""
-    if not clean_alpha(text):
-        raise ValueError("masukkan teks yang berisi huruf A-Z")
+    try:
+        encrypt, decrypt, name = operations[cipher]
+    except KeyError as exc:
+        raise ValueError("Algoritma tidak dikenali") from exc
 
-    encrypting = mode == "encrypt"
-
-    if cipher == "caesar":
-        try:
-            shift = int(key)
-        except ValueError as exc:
-            raise ValueError("kunci Caesar harus berupa angka") from exc
-        operation = shift_encrypt if encrypting else shift_decrypt
-        return operation(text, shift), "Caesar"
-
-    if cipher == "vigenere":
-        operation = vigenere_encrypt if encrypting else vigenere_decrypt
-        return operation(text, key), "Vigenère"
-
-    if cipher == "atbash":
-        return atbash(text), "Atbash"
-
-    if cipher == "railfence":
-        try:
-            rails = int(key)
-        except ValueError as exc:
-            raise ValueError("kunci Rail Fence harus berupa angka") from exc
-        if rails < 2:
-            raise ValueError("kunci Rail Fence minimal 2")
-        operation = rail_fence_encrypt if encrypting else rail_fence_decrypt
-        return operation(text, rails), "Rail Fence"
-
-    raise ValueError("algoritma tidak dikenali")
+    return (encrypt if mode == "encrypt" else decrypt)(), name
 
 
 @app.route("/", methods=["GET", "POST"])
@@ -111,18 +108,26 @@ def index():
 
     if request.method == "POST":
         try:
-            text = get_input_text()
-            result, cipher_name = process_cipher(
-                request.form.get("cipher", "caesar"),
+            if request.form.get("input_mode", "text") == "file":
+                raise ValueError("Mode file belum tersedia")
+
+            result, cipher_name = process_text(
+                request.form.get("cipher", "shift"),
                 request.form.get("mode", "encrypt"),
-                text,
+                request.form.get("text", ""),
                 request.form.get("key", ""),
             )
-        except ValueError as exc:
+
+            if request.form.get("output_format") == "group5":
+                result = group5(result)
+        except (TypeError, ValueError) as exc:
             error = str(exc)
 
     return render_template(
-        "index.html", result=result, error=error, cipher_name=cipher_name
+        "index.html",
+        result=result,
+        error=error,
+        cipher_name=cipher_name,
     )
 
 
