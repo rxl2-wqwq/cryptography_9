@@ -8,8 +8,9 @@ Aplikasi web berbasis Flask untuk mempelajari enkripsi dan dekripsi tujuh cipher
 
 - Repository: https://github.com/rxl2-wqwq/cryptography_9
 - Collaborators:
-  - [rafiisetianto](https://github.com/rafiisetianto)
-  - [Latief342](https://github.com/Latief342)
+  - [Muhammad_Rafi_setianto](https://github.com/rafiisetianto)
+  - [Abdul_Latie](https://github.com/Latief342)
+  - [Rizal_Arief_Zuhdi](https://github.com/rxl2-wqwq)
 
 ## Informasi Teknis
 
@@ -154,8 +155,3 @@ Browser mengirim nilai form ke route Flask pada `app.py`. Untuk teks, Flask memi
 ## Status Pengujian
 
 Tes otomatis terakhir yang dijalankan pada lingkungan pengembangan menghasilkan **17 passed** dengan `python -m pytest -q`. Hasil tersebut mencakup tes cipher dan file mode yang ada di repositori pada saat tes dijalankan; angka ini perlu diperbarui jika jumlah tes berubah.
-
-## Contributors
-
-- [rafiisetianto](https://github.com/rafiisetianto)
-- [Latief342](https://github.com/Latief342)
